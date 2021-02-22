@@ -4,3 +4,7 @@ outputs
 
 # PyCharm
 .idea
+
+venv/
+
+*.zip

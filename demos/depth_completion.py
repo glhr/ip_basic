@@ -14,7 +14,7 @@ dataset_paths = {
     "kitti": {
         "input_path": "~/rob10/learning-driveability-heatmaps/datasets/kitti/data_scene_flow/training/disp_occ_0",
         "glob_pattern": '/*.png',
-        "output_path_mapping": []
+        "output_path_mapping": ["disp_occ_0","depthcomp"]
     },
     "cityscapes": {
         "input_path": '~/rob10/learning-driveability-heatmaps/datasets/cityscapes/disparity/val',
@@ -23,7 +23,7 @@ dataset_paths = {
     },
 }
 
-DATASET = "cityscapes"
+DATASET = "kitti"
 
 def main():
     """Depth maps are saved to the 'outputs' folder.
@@ -36,7 +36,7 @@ def main():
     input_path = dataset_paths[DATASET]["input_path"]
     input_depth_dir = os.path.expanduser(input_path)
     glob_input = input_depth_dir + dataset_paths[DATASET]["glob_pattern"]
-    max_images = 2
+    max_images = 0
     data_split = 'val'
 
     this_file_path = os.path.dirname(os.path.realpath(__file__))
@@ -59,8 +59,8 @@ def main():
 
     # Multi-scale dilations with extra noise removal, no extrapolation @ 30Hz
     fill_type = 'multiscale'
-    extrapolate = False
-    blur_type = 'bilateral'
+    extrapolate = True
+    blur_type = 'bilteral'
 
     # Save output to disk or show process
     save_output = True
@@ -70,11 +70,11 @@ def main():
     ##############################
     if save_output:
         # Save to Disk
-        show_process = True
+        show_process = False
         save_depth_maps = True
     else:
-        if fill_type == 'fast':
-            raise ValueError('"fast" fill does not support show_process')
+        # if fill_type == 'fast':
+            # raise ValueError('"fast" fill does not support show_process')
 
         # Show Process
         show_process = True
@@ -162,6 +162,12 @@ def main():
             os.makedirs("/".join(file_path.split("/")[:-1]), exist_ok=True)
             print(file_path)
 
+            jet_path_in = depth_image_path.replace(dataset_paths[DATASET]["output_path_mapping"][0],"disparityjet")
+            jet_path_out = depth_image_path.replace(dataset_paths[DATASET]["output_path_mapping"][0],"depthcompjet")
+
+            os.makedirs("/".join(jet_path_in.split("/")[:-1]), exist_ok=True)
+            os.makedirs("/".join(jet_path_out.split("/")[:-1]), exist_ok=True)
+
 
         # Display images from process_dict
         if fill_type == 'multiscale' and show_process:
@@ -179,20 +185,15 @@ def main():
             max_x = 1900
 
             row_idx = 0
-            jet_path_in = depth_image_path.replace(dataset_paths[DATASET]["output_path_mapping"][0],"disparityjet")
-            jet_path_out = depth_image_path.replace(dataset_paths[DATASET]["output_path_mapping"][0],"depthcompjet")
-
-            os.makedirs("/".join(jet_path_in.split("/")[:-1]), exist_ok=True)
-            os.makedirs("/".join(jet_path_out.split("/")[:-1]), exist_ok=True)
 
             for key, value in process_dict.items():
 
                 image_jet = cv2.applyColorMap(
                     np.uint8(value / np.amax(value) * 255),
                     cv2.COLORMAP_JET)
-                #vis_utils.cv2_show_image(
-                    # key, image_jet,
-                    # img_size, (img_x, img_y))
+                if show_process: vis_utils.cv2_show_image(
+                    key, image_jet,
+                    img_size, (img_x, img_y))
 
                 img_x += x_offset + x_padding
                 if (img_x + x_offset + x_padding) > max_x:
@@ -201,12 +202,27 @@ def main():
                 img_y = y_start + row_idx * (y_offset + y_padding)
 
                 # Save process images
-                if key == "s0_depths_in":
+                if save_depth_maps and key == "s0_depths_in":
                     cv2.imwrite(jet_path_in, image_jet)
-                elif key == "s9_depths_out":
+                elif save_depth_maps and key == "s9_depths_out":
                     cv2.imwrite(jet_path_out, image_jet)
 
-            #cv2.waitKey()
+            if show_process: cv2.waitKey()
+        else:
+            input_jet = cv2.applyColorMap(
+                np.uint8(projected_depths / np.amax(projected_depths) * 255),
+                cv2.COLORMAP_JET)
+            np.place(input_jet, input_jet == [128,0,0], [0,0,0])
+            #input_jet[input_jet == 0] = 0
+            image_jet = cv2.applyColorMap(
+                np.uint8(final_depths / np.amax(final_depths) * 255),
+                cv2.COLORMAP_JET)
+            if show_process:
+                vis_utils.cv2_show_image("helo", image_jet,(570, 165), (0,0))
+                cv2.waitKey()
+            if save_depth_maps:
+                cv2.imwrite(jet_path_in, input_jet)
+                cv2.imwrite(jet_path_out, image_jet)
 
         if save_depth_maps:
             with open(file_path, 'wb') as f:

@@ -10,6 +10,20 @@ import png
 from ip_basic import depth_map_utils
 from ip_basic import vis_utils
 
+dataset_paths = {
+    "kitti": {
+        "input_path": "~/rob10/learning-driveability-heatmaps/datasets/kitti/data_scene_flow/training/disp_occ_0",
+        "glob_pattern": '/*.png',
+        "output_path_mapping": []
+    },
+    "cityscapes": {
+        "input_path": '~/rob10/learning-driveability-heatmaps/datasets/cityscapes/disparity/val',
+        "glob_pattern": '/**/*.png',
+        "output_path_mapping": ["disparity","depthcomp"]
+    },
+}
+
+DATASET = "cityscapes"
 
 def main():
     """Depth maps are saved to the 'outputs' folder.
@@ -19,9 +33,14 @@ def main():
     # Options
     ##############################
     # Validation set
-    input_depth_dir = os.path.expanduser(
-        '~/Kitti/depth/depth_selection/val_selection_cropped/velodyne_raw')
+    input_path = dataset_paths[DATASET]["input_path"]
+    input_depth_dir = os.path.expanduser(input_path)
+    glob_input = input_depth_dir + dataset_paths[DATASET]["glob_pattern"]
+    max_images = 2
     data_split = 'val'
+
+    this_file_path = os.path.dirname(os.path.realpath(__file__))
+
 
     # Test set
     # input_depth_dir = os.path.expanduser(
@@ -29,9 +48,9 @@ def main():
     # data_split = 'test'
 
     # Fast fill with Gaussian blur @90Hz (paper result)
-    fill_type = 'fast'
-    extrapolate = True
-    blur_type = 'gaussian'
+    # fill_type = 'fast'
+    # extrapolate = True
+    # blur_type = 'gaussian'
 
     # Fast Fill with bilateral blur, no extrapolation @87Hz (recommended)
     # fill_type = 'fast'
@@ -39,9 +58,9 @@ def main():
     # blur_type = 'bilateral'
 
     # Multi-scale dilations with extra noise removal, no extrapolation @ 30Hz
-    # fill_type = 'multiscale'
-    # extrapolate = False
-    # blur_type = 'bilateral'
+    fill_type = 'multiscale'
+    extrapolate = False
+    blur_type = 'bilateral'
 
     # Save output to disk or show process
     save_output = True
@@ -51,7 +70,7 @@ def main():
     ##############################
     if save_output:
         # Save to Disk
-        show_process = False
+        show_process = True
         save_depth_maps = True
     else:
         if fill_type == 'fast':
@@ -61,35 +80,35 @@ def main():
         show_process = True
         save_depth_maps = False
 
+    # Get images in sorted order
+    images_to_use = sorted(glob.glob(glob_input)[:max_images] if max_images else glob.glob(glob_input))
+    print(images_to_use[0])
+
     # Create output folder
-    this_file_path = os.path.dirname(os.path.realpath(__file__))
-    outputs_dir = this_file_path + '/outputs'
+    outputs_dir = input_depth_dir + '/outputs'
     os.makedirs(outputs_dir, exist_ok=True)
 
-    output_folder_prefix = 'depth_' + data_split
-    output_list = sorted(os.listdir(outputs_dir))
-    if len(output_list) > 0:
-        split_folders = [folder for folder in output_list
-                         if folder.startswith(output_folder_prefix)]
-        if len(split_folders) > 0:
-            last_output_folder = split_folders[-1]
-            last_output_index = int(last_output_folder.split('_')[-1])
-        else:
-            last_output_index = -1
-    else:
-        last_output_index = -1
-    output_depth_dir = outputs_dir + '/{}_{:03d}'.format(
-        output_folder_prefix, last_output_index + 1)
-
-    if save_output:
-        if not os.path.exists(output_depth_dir):
-            os.makedirs(output_depth_dir)
-        else:
-            raise FileExistsError('Already exists!')
-        print('Output dir:', output_depth_dir)
-
-    # Get images in sorted order
-    images_to_use = sorted(glob.glob(input_depth_dir + '/*'))
+    # output_folder_prefix = 'depth_' + data_split
+    # output_list = sorted(os.listdir(outputs_dir))
+    # if len(output_list) > 0:
+    #     split_folders = [folder for folder in output_list
+    #                      if folder.startswith(output_folder_prefix)]
+    #     if len(split_folders) > 0:
+    #         last_output_folder = split_folders[-1]
+    #         last_output_index = int(last_output_folder.split('_')[-1])
+    #     else:
+    #         last_output_index = -1
+    # else:
+    #     last_output_index = -1
+    # output_depth_dir = outputs_dir + '/{}_{:03d}'.format(
+    #     output_folder_prefix, last_output_index + 1)
+    #
+    # if save_output:
+    #     if not os.path.exists(output_depth_dir):
+    #         os.makedirs(output_depth_dir)
+    #     else:
+    #         raise FileExistsError('Already exists!')
+    #     print('Output dir:', output_depth_dir)
 
     # Rolling average array of times for time estimation
     avg_time_arr_length = 10
@@ -134,6 +153,16 @@ def main():
             raise ValueError('Invalid fill_type {}'.format(fill_type))
         end_fill_time = time.time()
 
+        # Save depth images to disk
+        if save_depth_maps:
+            depth_image_file_name = os.path.split(depth_image_path)[1]
+            # Save depth map to a uint16 png (same format as disparity maps)
+            file_path = depth_image_path.replace(dataset_paths[DATASET]["output_path_mapping"][0],dataset_paths[DATASET]["output_path_mapping"][1])
+
+            os.makedirs("/".join(file_path.split("/")[:-1]), exist_ok=True)
+            print(file_path)
+
+
         # Display images from process_dict
         if fill_type == 'multiscale' and show_process:
             img_size = (570, 165)
@@ -150,14 +179,20 @@ def main():
             max_x = 1900
 
             row_idx = 0
+            jet_path_in = depth_image_path.replace(dataset_paths[DATASET]["output_path_mapping"][0],"disparityjet")
+            jet_path_out = depth_image_path.replace(dataset_paths[DATASET]["output_path_mapping"][0],"depthcompjet")
+
+            os.makedirs("/".join(jet_path_in.split("/")[:-1]), exist_ok=True)
+            os.makedirs("/".join(jet_path_out.split("/")[:-1]), exist_ok=True)
+
             for key, value in process_dict.items():
 
                 image_jet = cv2.applyColorMap(
                     np.uint8(value / np.amax(value) * 255),
                     cv2.COLORMAP_JET)
-                vis_utils.cv2_show_image(
-                    key, image_jet,
-                    img_size, (img_x, img_y))
+                #vis_utils.cv2_show_image(
+                    # key, image_jet,
+                    # img_size, (img_x, img_y))
 
                 img_x += x_offset + x_padding
                 if (img_x + x_offset + x_padding) > max_x:
@@ -166,16 +201,14 @@ def main():
                 img_y = y_start + row_idx * (y_offset + y_padding)
 
                 # Save process images
-                cv2.imwrite('process/' + key + '.png', image_jet)
+                if key == "s0_depths_in":
+                    cv2.imwrite(jet_path_in, image_jet)
+                elif key == "s9_depths_out":
+                    cv2.imwrite(jet_path_out, image_jet)
 
-            cv2.waitKey()
+            #cv2.waitKey()
 
-        # Save depth images to disk
         if save_depth_maps:
-            depth_image_file_name = os.path.split(depth_image_path)[1]
-
-            # Save depth map to a uint16 png (same format as disparity maps)
-            file_path = output_depth_dir + '/' + depth_image_file_name
             with open(file_path, 'wb') as f:
                 depth_image = (final_depths * 256).astype(np.uint16)
 

@@ -8,3 +8,5 @@ outputs
 venv/
 
 *.zip
+
+process/

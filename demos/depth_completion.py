@@ -21,9 +21,19 @@ dataset_paths = {
         "glob_pattern": '/**/*.png',
         "output_path_mapping": ["disparity","depthcomp"]
     },
+    "fieldsafe": {
+        "input_path": '~/rob10/learning-driveability-heatmaps/datasets/fieldsafe/imgs',
+        "glob_pattern": '/*depth.png',
+        "output_path_mapping": ["depth","depthcomp"]
+    },
+    "wwww": {
+        "input_path": '~/rob10/learning-driveability-heatmaps/datasets/wwww/imgs',
+        "glob_pattern": '/*depth.png',
+        "output_path_mapping": ["depth","depthcomp"]
+    },
 }
 
-DATASET = "kitti"
+DATASET = "wwww"
 
 def main():
     """Depth maps are saved to the 'outputs' folder.
@@ -36,16 +46,9 @@ def main():
     input_path = dataset_paths[DATASET]["input_path"]
     input_depth_dir = os.path.expanduser(input_path)
     glob_input = input_depth_dir + dataset_paths[DATASET]["glob_pattern"]
-    max_images = 0
-    data_split = 'val'
+    max_images = 1
 
     this_file_path = os.path.dirname(os.path.realpath(__file__))
-
-
-    # Test set
-    # input_depth_dir = os.path.expanduser(
-    #     '~/Kitti/depth/depth_selection/test_depth_completion_anonymous/velodyne_raw')
-    # data_split = 'test'
 
     # Fast fill with Gaussian blur @90Hz (paper result)
     # fill_type = 'fast'
@@ -83,32 +86,6 @@ def main():
     # Get images in sorted order
     images_to_use = sorted(glob.glob(glob_input)[:max_images] if max_images else glob.glob(glob_input))
     print(images_to_use[0])
-
-    # Create output folder
-    outputs_dir = input_depth_dir + '/outputs'
-    os.makedirs(outputs_dir, exist_ok=True)
-
-    # output_folder_prefix = 'depth_' + data_split
-    # output_list = sorted(os.listdir(outputs_dir))
-    # if len(output_list) > 0:
-    #     split_folders = [folder for folder in output_list
-    #                      if folder.startswith(output_folder_prefix)]
-    #     if len(split_folders) > 0:
-    #         last_output_folder = split_folders[-1]
-    #         last_output_index = int(last_output_folder.split('_')[-1])
-    #     else:
-    #         last_output_index = -1
-    # else:
-    #     last_output_index = -1
-    # output_depth_dir = outputs_dir + '/{}_{:03d}'.format(
-    #     output_folder_prefix, last_output_index + 1)
-    #
-    # if save_output:
-    #     if not os.path.exists(output_depth_dir):
-    #         os.makedirs(output_depth_dir)
-    #     else:
-    #         raise FileExistsError('Already exists!')
-    #     print('Output dir:', output_depth_dir)
 
     # Rolling average array of times for time estimation
     avg_time_arr_length = 10
